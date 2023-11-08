@@ -101,31 +101,50 @@ struct ColorItem: Identifiable {
     var name: String
 }
 
+import SwiftUI
+
 struct TimerTab: View {
     @Binding var acquiredColors: [ColorItem]
     @ObservedObject var selectedColorManager: SelectedColorManager
-    @State private var time = ""
+    
+    // Interval Timer States
+    @State private var initialTime = ""
+    @State private var breakTime = ""
+    @State private var finalTime = ""
     @State private var isTimerRunning = false
+    @State private var timerFinished = false
     @State private var remainingTime = 0
     @State private var timer: Timer?
-    @State private var timerFinished = false
+    @State private var currentTimerLabel = ""
+    
+    // Enum for Timer Phase
+    enum TimerPhase {
+        case initial, `break`, final, finished
+    }
+    @State private var currentPhase: TimerPhase = .initial
 
     var body: some View {
         ZStack {
             Color(timerFinished ? (selectedColorManager.selectedColor ?? .green) : .black)
                 .ignoresSafeArea()
 
-            VStack {
+            VStack(spacing: 30) {
                 Text("Timer")
                     .font(.largeTitle)
                     .foregroundColor(.white)
+                    .padding(.top, 50)
 
-                if !timerFinished {
-                    TextField("Enter time in seconds", text: $time)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .keyboardType(.numberPad)
-                        .foregroundColor(.black)
-                        .padding()
+                if !isTimerRunning && !timerFinished {
+                    Group {
+                        TextField("Enter initial time in seconds", text: $initialTime)
+                        TextField("Enter break time in seconds", text: $breakTime)
+                        TextField("Enter final time in seconds", text: $finalTime)
+                    }
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.numberPad)
+                    .padding()
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(5)
                 }
 
                 Button(action: {
@@ -135,43 +154,67 @@ struct TimerTab: View {
                         if isTimerRunning {
                             stopTimer()
                         } else {
-                            startTimer()
+                            startTimer(phase: currentPhase)
                         }
                     }
                 }) {
-                    Text(timerFinished ? "Restart Timer" : (isTimerRunning ? "Stop Timer" : "Start Timer"))
+                    Text(isTimerRunning ? "Pause Timer" : (timerFinished ? "Reset Timer" : "Start Timer"))
                         .font(.title)
                         .foregroundColor(.white)
+                        .padding()
+                        .background(timerFinished ? Color.blue : (isTimerRunning ? Color.red : Color.green))
+                        .cornerRadius(10)
                 }
 
-                Text(timerFinished ? "Timer Finished!" : "Time remaining: \(remainingTime) seconds")
+                if isTimerRunning || timerFinished {
+                    Text("\(remainingTime)")
+                        .font(.system(size: 80, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding()
+                        .transition(.scale)
+                }
+
+                // Display which timer is currently active
+                Text(currentTimerLabel)
                     .font(.headline)
                     .foregroundColor(.white)
+                    .opacity(isTimerRunning ? 1 : 0)
             }
         }
         .onAppear {
+            // Handle on appear logic
             if let selectedColor = selectedColorManager.selectedColor {
                 acquiredColors.removeAll { $0.color == selectedColor }
                 acquiredColors.insert(ColorItem(color: selectedColor, name: ""), at: 0)
             }
         }
         .onDisappear {
-            // Calculate and accumulate experience when the timer stops
+            // Handle on disappear logic
             if timerFinished {
-                let timeUsed = Double(time) ?? 0
-                let experienceGained = timeUsed * 0.15 // 0.15 experience per second
+                let experienceGained = calculateExperience()
                 selectedColorManager.experience += experienceGained
                 selectedColorManager.updateLevel() // Update the level
             }
         }
     }
 
-    func startTimer() {
-        if isTimerRunning {
+    func startTimer(phase: TimerPhase) {
+        var timeInput = ""
+        switch phase {
+        case .initial:
+            timeInput = initialTime
+            currentTimerLabel = "Initial Time"
+        case .break:
+            timeInput = breakTime
+            currentTimerLabel = "Break Time"
+        case .final:
+            timeInput = finalTime
+            currentTimerLabel = "Final Time"
+        case .finished:
             return
         }
-
-        if let inputTime = Int(time) {
+        
+        if let inputTime = Int(timeInput), inputTime > 0 {
             remainingTime = inputTime
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
                 if remainingTime > 0 {
@@ -179,7 +222,21 @@ struct TimerTab: View {
                 } else {
                     timer?.invalidate()
                     isTimerRunning = false
-                    timerFinished = true
+                    
+                    switch currentPhase {
+                    case .initial:
+                        currentPhase = .break
+                        startTimer(phase: .break)
+                    case .break:
+                        currentPhase = .final
+                        startTimer(phase: .final)
+                    case .final:
+                        currentPhase = .finished
+                        timerFinished = true
+                        currentTimerLabel = ""
+                    case .finished:
+                        break
+                    }
                 }
             }
             isTimerRunning = true
@@ -189,15 +246,31 @@ struct TimerTab: View {
     func stopTimer() {
         timer?.invalidate()
         isTimerRunning = false
+        currentTimerLabel = ""
     }
 
     func resetTimer() {
         stopTimer()
         timerFinished = false
         remainingTime = 0
-        time = ""
+        initialTime = ""
+        breakTime = ""
+        finalTime = ""
+        currentPhase = .initial
+        currentTimerLabel = ""
+    }
+    
+    // Function to calculate experience based on your logic
+    func calculateExperience() -> Double {
+        // Your logic for calculating experience
+        let initialExperience = (Double(initialTime) ?? 0) * 0.15
+        let breakExperience = (Double(breakTime) ?? 0) * 0.1 // Assuming less experience for break
+        let finalExperience = (Double(finalTime) ?? 0) * 0.15
+        
+        return initialExperience + breakExperience + finalExperience
     }
 }
+
 
 struct ProfileTab: View {
     @EnvironmentObject var selectedColorManager: SelectedColorManager
