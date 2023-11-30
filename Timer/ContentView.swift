@@ -4,7 +4,7 @@
 //
 //  Created by Taylor Thimmesh on 10/19/23.
 //
-
+import AVFoundation
 import SwiftUI
 
 struct ContentView: View {
@@ -102,6 +102,7 @@ struct ColorItem: Identifiable {
 }
 
 import SwiftUI
+import AVFoundation
 
 struct TimerTab: View {
     @Binding var acquiredColors: [ColorItem]
@@ -122,6 +123,24 @@ struct TimerTab: View {
         case initial, `break`, final, finished
     }
     @State private var currentPhase: TimerPhase = .initial
+
+    // Audio player property
+    private var audioPlayer: AVAudioPlayer?
+
+    init(acquiredColors: Binding<[ColorItem]>, selectedColorManager: SelectedColorManager) {
+            self._acquiredColors = acquiredColors
+            self.selectedColorManager = selectedColorManager
+
+            // Initialize the audio player with a sound file
+            if let soundURL = Bundle.main.url(forResource: "alarmsound", withExtension: "mp3") {
+                do {
+                    audioPlayer = try AVAudioPlayer(contentsOf: soundURL)
+                    audioPlayer?.prepareToPlay()
+                } catch {
+                    print("Error: Couldn't load sound file.")
+                }
+            }
+        }
 
     var body: some View {
         ZStack {
@@ -173,6 +192,7 @@ struct TimerTab: View {
                         .padding()
                         .transition(.scale)
                 }
+
 
                 // Display which timer is currently active
                 Text(currentTimerLabel)
@@ -234,6 +254,7 @@ struct TimerTab: View {
                         currentPhase = .finished
                         timerFinished = true
                         currentTimerLabel = ""
+                        audioPlayer?.play() // Play sound when final phase finishes
                     case .finished:
                         break
                     }
