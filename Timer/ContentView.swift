@@ -107,17 +107,20 @@ import AVFoundation
 struct TimerTab: View {
     @Binding var acquiredColors: [ColorItem]
     @ObservedObject var selectedColorManager: SelectedColorManager
-    
+
     // Interval Timer States
-    @State private var initialTime = ""
-    @State private var breakTime = ""
-    @State private var finalTime = ""
+    @State private var initialMinutes = ""
+    @State private var initialSeconds = ""
+    @State private var breakMinutes = ""
+    @State private var breakSeconds = ""
+    @State private var finalMinutes = ""
+    @State private var finalSeconds = ""
     @State private var isTimerRunning = false
     @State private var timerFinished = false
     @State private var remainingTime = 0
     @State private var timer: Timer?
     @State private var currentTimerLabel = ""
-    
+
     // Enum for Timer Phase
     enum TimerPhase {
         case initial, `break`, final, finished
@@ -128,19 +131,19 @@ struct TimerTab: View {
     private var audioPlayer: AVAudioPlayer?
 
     init(acquiredColors: Binding<[ColorItem]>, selectedColorManager: SelectedColorManager) {
-            self._acquiredColors = acquiredColors
-            self.selectedColorManager = selectedColorManager
+        self._acquiredColors = acquiredColors
+        self.selectedColorManager = selectedColorManager
 
-            // Initialize the audio player with a sound file
-            if let soundURL = Bundle.main.url(forResource: "alarmsound", withExtension: "mp3") {
-                do {
-                    audioPlayer = try AVAudioPlayer(contentsOf: soundURL)
-                    audioPlayer?.prepareToPlay()
-                } catch {
-                    print("Error: Couldn't load sound file.")
-                }
+        // Initialize the audio player with a sound file
+        if let soundURL = Bundle.main.url(forResource: "alarmsound", withExtension: "mp3") {
+            do {
+                audioPlayer = try AVAudioPlayer(contentsOf: soundURL)
+                audioPlayer?.prepareToPlay()
+            } catch {
+                print("Error: Couldn't load sound file.")
             }
         }
+    }
 
     var body: some View {
         ZStack {
@@ -155,15 +158,52 @@ struct TimerTab: View {
 
                 if !isTimerRunning && !timerFinished {
                     Group {
-                        TextField("Enter initial time in seconds", text: $initialTime)
-                        TextField("Enter break time in seconds", text: $breakTime)
-                        TextField("Enter final time in seconds", text: $finalTime)
+                        HStack {
+                            TextField("Minutes", text: $initialMinutes)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .keyboardType(.numberPad)
+                                .padding()
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(5)
+
+                            TextField("Seconds", text: $initialSeconds)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .keyboardType(.numberPad)
+                                .padding()
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(5)
+                        }
+                        HStack {
+                            TextField("Minutes", text: $breakMinutes)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .keyboardType(.numberPad)
+                                .padding()
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(5)
+
+                            TextField("Seconds", text: $breakSeconds)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .keyboardType(.numberPad)
+                                .padding()
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(5)
+                        }
+                        HStack {
+                            TextField("Minutes", text: $finalMinutes)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .keyboardType(.numberPad)
+                                .padding()
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(5)
+
+                            TextField("Seconds", text: $finalSeconds)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .keyboardType(.numberPad)
+                                .padding()
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(5)
+                        }
                     }
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .keyboardType(.numberPad)
-                    .padding()
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(5)
                 }
 
                 Button(action: {
@@ -193,7 +233,6 @@ struct TimerTab: View {
                         .transition(.scale)
                 }
 
-
                 // Display which timer is currently active
                 Text(currentTimerLabel)
                     .font(.headline)
@@ -219,30 +258,37 @@ struct TimerTab: View {
     }
 
     func startTimer(phase: TimerPhase) {
-        var timeInput = ""
+        var minutesInput = 0
+        var secondsInput = 0
+
         switch phase {
         case .initial:
-            timeInput = initialTime
+            minutesInput = Int(initialMinutes) ?? 0
+            secondsInput = Int(initialSeconds) ?? 0
             currentTimerLabel = "Initial Time"
         case .break:
-            timeInput = breakTime
+            minutesInput = Int(breakMinutes) ?? 0
+            secondsInput = Int(breakSeconds) ?? 0
             currentTimerLabel = "Break Time"
         case .final:
-            timeInput = finalTime
+            minutesInput = Int(finalMinutes) ?? 0
+            secondsInput = Int(finalSeconds) ?? 0
             currentTimerLabel = "Final Time"
         case .finished:
             return
         }
-        
-        if let inputTime = Int(timeInput), inputTime > 0 {
-            remainingTime = inputTime
+
+        let totalSeconds = (minutesInput * 60) + secondsInput
+
+        if totalSeconds > 0 {
+            remainingTime = totalSeconds
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
                 if remainingTime > 0 {
                     remainingTime -= 1
                 } else {
                     timer?.invalidate()
                     isTimerRunning = false
-                    
+
                     switch currentPhase {
                     case .initial:
                         currentPhase = .break
@@ -274,20 +320,23 @@ struct TimerTab: View {
         stopTimer()
         timerFinished = false
         remainingTime = 0
-        initialTime = ""
-        breakTime = ""
-        finalTime = ""
+        initialMinutes = ""
+        initialSeconds = ""
+        breakMinutes = ""
+        breakSeconds = ""
+        finalMinutes = ""
+        finalSeconds = ""
         currentPhase = .initial
         currentTimerLabel = ""
     }
-    
+
     // Function to calculate experience based on your logic
     func calculateExperience() -> Double {
         // Your logic for calculating experience
-        let initialExperience = (Double(initialTime) ?? 0) * 0.15
-        let breakExperience = (Double(breakTime) ?? 0) * 0.1 // Assuming less experience for break
-        let finalExperience = (Double(finalTime) ?? 0) * 0.15
-        
+        let initialExperience = (Double((Int(initialMinutes) ?? 0) * 60 + (Int(initialSeconds) ?? 0)) * 0.15)
+        let breakExperience = (Double((Int(breakMinutes) ?? 0) * 60 + (Int(breakSeconds) ?? 0)) * 0.1) // Assuming less experience for break
+        let finalExperience = (Double((Int(finalMinutes) ?? 0) * 60 + (Int(finalSeconds) ?? 0)) * 0.15)
+
         return initialExperience + breakExperience + finalExperience
     }
 }
